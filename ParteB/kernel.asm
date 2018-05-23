@@ -7,7 +7,11 @@
 	.global _interrupt
 	.global _makeInterrupt21
 	.global _loadProgram
-;	.extern _handleInterrupt21
+	.global _interrupt21ServiceRoutine
+	.global _printChar 
+	.global _readChar
+	.global _readSector
+	.extern _handleInterrupt21
 
 ;void putInMemory (int segment, int address, char character)
 _putInMemory:
@@ -93,19 +97,71 @@ _loadProgram:
 ;it will call your function:
 ;void handleInterrupt21 (int AX, int BX, int CX, int DX)
 _interrupt21ServiceRoutine:
-;	push dx
-;	push cx
-;	push bx
-;	push ax
-;	call _handleInterrupt21
-;	pop ax
-;	pop bx
-;	pop cx
-;	pop dx
+	push dx
+	push cx
+	push bx
+	push ax
+	call _handleInterrupt21
+	pop ax
+	pop bx
+	pop cx
+	pop dx
 
-;	iret
+	iret
 
+_printChar:
+	push bp
+	mov bp, sp
+	
+	mov al,[bp+4]
+	mov ah, #0x0e
+	int #0x10
 
+	pop bp
+	ret
 
+_readChar:
+	
+	mov ah, #0x0
+	int #0x16
+	mov ah, #0x0
+	ret
 
-    
+_readSector:
+	push bp
+	mov bp, sp
+	sub sp, 6
+	
+	mov ax, [bp+6]
+	mov bx, #0x24
+	cdq
+	idiv bx
+	mov [bp-2], ax
+	mov ax, [bp+6]z
+	mov bx, #0x12
+	cdq
+	idiv bx	
+	mov bx, #0x2
+	cdq
+	idiv bx
+	mov [bp-6], dx
+	mov ax, [bp+6]
+	mov bx, #0x12
+	cdq
+	idiv bx
+	add dx, #0x1
+	mov [bp-4], dx
+
+	mov ah, #0x2
+	mov al, #0x1
+	mov bx, [bp+4]
+	mov ch, [bp-2]
+	mov cl, [bp-4]
+	mov dh, [bp-6]
+	mov dl, #0x0
+	int #0x13
+
+	mov sp, bp
+	pop bp
+	ret
+  
