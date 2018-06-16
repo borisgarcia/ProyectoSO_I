@@ -1,6 +1,3 @@
-#ifndef _KERNEL_C
-#define _KERNEL_C
-
 void printString(char*);
 void readString(char []);
 void interrupt21ServiceRoutine(int,int,int);
@@ -12,8 +9,11 @@ void clear_screen();
 int main()
 {
   makeInterrupt21();
-  executeProgram("shelll", 0x2000);
+  executeProgram("shell", 0x2000);
   while(1);
+
+ 
+  return 0;
 }
 
 void terminateProgram()
@@ -23,13 +23,8 @@ void terminateProgram()
 
 void readFile(char *name, char buffer[])
 {
-    int next = 0;
-    int first;
-    int x,y,i;
-    int sector;
-    int equal = 0;
-    int result = 20;
-    int increment;
+    int next = 0,equal = 0,result = 20;
+    int x,y,i,increment,sector,first;
     int dir[27];
     char directory[512];
     
@@ -38,13 +33,11 @@ void readFile(char *name, char buffer[])
     for (x = 0; x < 16; x++)
     {
         for (y = 0; y < 6; y++)
-        {
             if (directory[y + next] != name[y])
             {
               equal = 1;
               break;
             }
-        }
         
         next += 32;
 
@@ -60,11 +53,9 @@ void readFile(char *name, char buffer[])
 
     else
     {
-      first = result * 32 + 6;
-        
+      first = result * 32 + 6;     
       for (i = 0; i < 26; i++)
         dir[i] = directory[first + i];
-
         dir[26] = 0;
         increment = 0;
         for (sector = 0; dir[sector] != 0x0; sector++)
@@ -74,81 +65,17 @@ void readFile(char *name, char buffer[])
         }
     }
 }
-void readFile(char *name, char buffer[])
-{
-    int fileChanger = 0;
-    int startingSector;
-    int x,y;
-    int sec;
-    int notSameChar = 0;
-    int result = 20;
-    int n;
-    int incrementerOfAddress;
-    int dirSectors[27];
-    char directory[512];
-    
-    readSector(directory, 2);
-
-    //finding the file location
-    for (x = 0; x < 16; x++)
-    {
-        for (y = 0; y < 6; y++)
-        {
-            if (directory[y + fileChanger] == name[y])
-            {
-                notSameChar = 0;
-            }
-            else
-
-                notSameChar = 1;
-            if (notSameChar == 1)
-                break;
-        }
-
-        fileChanger += 32;
-
-        if (notSameChar == 0)
-            result = x;
-
-        if (result != 20)
-            break;
-    }
-
-    //if didn't found the file 
-    if (result == 20)
-    {
-        return;
-    }
-
-    else
-    {
-        //load file sector by sector
-        startingSector = result * 32 + 6;
-        //(+6 , 6 for the next file name )
-        for (n = 0; n < 26; n++)
-        {
-            dirSectors[n] = directory[startingSector + n];
-        }
-        dirSectors[26] = 0;
-        incrementerOfAddress = 0;
-        for (sec = 0; dirSectors[sec] != 0x0; sec++)
-        {
-            readSector(buffer + incrementerOfAddress, dirSectors[sec]);
-            incrementerOfAddress += 512;
-        }
-    }
-}
 
 void executeProgram(char *name, int segment)
 {
-    int currentFromBuffer = 0;
+    int cBuffer = 0;
     char buffer[13312];
 
     readFile(name, buffer);
     
-    for (currentFromBuffer = 0; currentFromBuffer < 13312; currentFromBuffer++)
-        putInMemory(segment, currentFromBuffer, buffer[currentFromBuffer]);
-        
+    for (; cBuffer < 13312; cBuffer++)
+        putInMemory(segment, cBuffer, buffer[cBuffer]);
+    
     launchProgram(segment);
 }
 
@@ -219,5 +146,5 @@ void clear_screen()
   int i;
   for(i= 0x8000; i <= 0x8fa0; i=i+2)
     putInMemory(0xB000,i,' ');
+  interrupt(0x10,0x2,0x0,0x0,0x0);
 } 
-#endif
