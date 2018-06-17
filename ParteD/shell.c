@@ -18,17 +18,27 @@ int main()
 
         if(isEqual("execute",str))
         {
-            split(8,str,bOut);
-            syscall_executeProgram(&bOut[8],0x4000);
+            syscall_executeProgram(&str[8],0x4000);
             syscall_printString("\r\n");
         }
         
         else if(isEqual("type",str))
         {
-            split(5,str,bOut);
-            syscall_readFile(&bOut[5],buffer);
+            syscall_readFile(&str[5],buffer);
             syscall_printString("\r\n");
             syscall_printString(buffer);
+            syscall_printString("\r\n");
+        }
+
+        else if(isEqual("delete",str))
+        {
+            syscall_deleteFile(&str[7]);
+            syscall_printString("\r\n");
+        }
+
+        else if(isEqual("copy",str))
+        {
+            syscall_copyFile(&str[5],&str[12]);
             syscall_printString("\r\n");
         }
 
@@ -37,6 +47,10 @@ int main()
 
         else if(isEqual("exit",str))
             syscall_terminateProgram();
+        
+        else if(isEqual("dir",str))
+            syscall_dir();
+
 
         else
             syscall_printString("Command not Found!");
@@ -54,16 +68,4 @@ int isEqual(char buffS[], char str[])
 	        return 0;
     }
     return 1;
-}
-
-void split(int pos, char buffIn[],char buffOut[])
-{
-    int x;
-    int pos = 0;
-    for (x = 0; buffIn[x] != '\0' ; x++)
-    {
-        buffOut[pos] = buffIn[x];
-	    pos++;
-    }
-    buffOut[pos] = '\0';
 }
