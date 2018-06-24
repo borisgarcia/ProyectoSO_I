@@ -10,8 +10,10 @@
 	.extern _handleInterrupt21
 	.global _printhex
 	.global _makeTimerInterrupt
-	.extern _handleTimerInterrupt
 	.global _returnFromTimer
+	.global _initializeProgram
+	.global _setKernelDataSegment
+	.global _restoreDataSegment
 	.global _loadProgram
 	.global _interrupt21ServiceRoutine
 	.global _printChar 
@@ -57,6 +59,103 @@ _writeSector:
 	pop bp
 	ret
 
+;void restoreDataSegment()
+;restores the data segment
+_restoreDataSegment:
+	pop bx
+	pop ds
+	push bx
+	ret
+
+;void setKernelDataSegment()
+;sets the data segment to the kernel, saving the current ds on the stack
+_setKernelDataSegment:
+	pop bx
+	push ds
+	push bx
+	mov ax,#0x1000
+	mov ds,ax
+	ret
+
+;void initializeProgram(int segment)
+;this initializes a new program but doesn't start it running
+;the scheduler will take care of that
+;the program will be located at the beginning of the segment at [sp+2]
+_initializeProgram:
+	;bx=new segment
+	push	bp
+	mov     bp,sp
+	mov     bx,[bp+4]
+	;save the caller's stack pointer and segment
+	mov     cx,sp
+	mov     dx,ss
+	mov     ax,#0xff18      ;this allows an initial sp of 0xff00
+	mov     sp,ax
+	mov     ss,bx
+
+	mov     ax,#0   ;IP
+	push    ax
+	mov     ax,bx   ;CS
+	push    ax
+	mov     ax,#0x0         ;a normal flag setting
+	push    ax
+	mov     ax,#0           ;set all the general registers to 0
+	push    ax      ;bx
+	push    ax      ;cx
+	push    ax      ;dx
+	push    ax      ;si
+	push    ax      ;di
+	push    ax      ;bp
+	push    ax      ;ax
+	mov     ax,bx
+	push    ax      ;ds
+	push    ax      ;es
+
+	;restore the stack to the caller
+	mov     sp,cx
+	mov     ss,dx
+	pop	bp
+	ret
+
+;void returnFromTimer(int segment, int sp)
+;returns from a timer interrupt to a different process
+_returnFromTimer:
+	;pop off the local return address - don't need it
+	pop ax
+	;get the segment and stack pointer
+	pop bx
+	pop cx
+
+	;get rid of the junk from the two calls and no returns
+	pop ax
+	pop ax
+	pop ax
+	pop ax
+	pop ax
+	pop ax
+	pop ax
+
+	;set up the stack
+	mov sp,cx
+	;set up the stack segment
+	mov ss,bx
+
+	;now we're back to the program's area
+	;reload the registers (if this is it's first time running, these will be zeros)
+	pop es
+	pop ds
+	pop ax
+	pop bp
+	pop di
+	pop si
+	pop dx
+	pop cx
+	pop bx
+
+	;enable interrupts and return
+	sti
+	iret
+
 ;void makeTimerInterrupt()
 ;sets up the timer's interrupt service routine
 _makeTimerInterrupt:
@@ -82,7 +181,6 @@ _makeTimerInterrupt:
 
 	sti
 	ret
-
 
 ;void putInMemory (int segment, int address, char character)
 _putInMemory:

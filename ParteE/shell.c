@@ -5,7 +5,7 @@ int main()
 {
     char str[80];
     char buffer[13312];
- 
+    enableInterrupts();
     syscall_printString("Project C: ");
     syscall_printString("\r\n");
     syscall_printString("\r\n");
@@ -61,6 +61,13 @@ int main()
             syscall_printString("Escriba: ");
             syscall_createTXT(&str[7]);
             syscall_printString("\r\n");
+        } 
+
+        else if(isEqual("kill",str))
+        {
+            syscall_printString("Killing: ");
+            syscall_createTXT(&str[5]);
+            syscall_killProcess("\r\n");
         }            
 
         else
@@ -89,7 +96,7 @@ void cleanBuffer(char buffer[])
 {
     while(*buffer != '\0')
     {
-        *buffer = 0;
+        *buffer = 0x00;
         *buffer++;        
     }
 }

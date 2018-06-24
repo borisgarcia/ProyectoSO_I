@@ -12,6 +12,26 @@
 	.global _syscall_copyFile
 	.global _syscall_dir
 	.global _syscall_createTXT
+	.global _enableInterrupts
+	.global _syscall_killProcess
+
+;void enableInterrupts()
+;call at the beginning of programs.  allows timer preemption
+_enableInterrupts:
+	sti
+	ret
+
+_syscall_killProcess:
+	push bp
+	mov bp, sp
+	
+	mov bx, [bp+4]
+	mov ax, #0x9
+	int #0x21
+
+	mov sp,bp
+	pop bp
+	ret
 
 
 _syscall_printString:
@@ -67,7 +87,6 @@ _syscall_executeProgram:
 	push bp
 	mov bp, sp
 
-	mov cx, [bp+6]
 	mov bx, [bp+4]
 	mov ax, #0x4
 	int #0x21
@@ -129,7 +148,7 @@ _syscall_dir:
 	push bp
 	mov bp, sp
 
-	mov ax, #0x9
+	mov ax, #0xd
 	int #0x21
 
 	mov sp,bp

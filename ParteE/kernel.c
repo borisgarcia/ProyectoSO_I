@@ -3,7 +3,7 @@ void readString(char []);
 void handleInterrupt21(int,int,int,int);
 void readFile(char *,char[]);
 void terminateProgram();
-void executeProgram(char *, int);
+void executeProgram(char *);
 void clear_screen();
 int searchFile(char*);
 void deleteFile(char*); 
@@ -11,32 +11,66 @@ void writeFile(char*, char*, int);
 void copyFile(char *, char *);
 void createTXT(char*);
 void dir();
+void handleTimerInterrupt(int, int);
+void killProcess(int);
+
+int activeProcess[8];
+int processSP[8];
+int currentProcess;
+int timeU = 0;
+int firstExecution = 0;
 
 int main()
 {
+  int x;
+  for(x=0;x<8;x++)
+  {
+    activeProcess[x]=0;
+    processSP[x]= 0xFF00;
+  }
+  currentProcess = 0;
   makeInterrupt21();
-  executeProgram("shell", 0x2000);
-  while(1);
+  executeProgram("shell");
   makeTimerInterrupt();
+  while(1);
   return 0;
 }
 
+
 void terminateProgram()
 {
+  setKernelDataSegment();
+  activeProcess[currentProcess] = 0;
+	processSP[currentProcess] = 0xFF00;
   while(1);
 }
 
-void executeProgram(char *name, int segment)
+void executeProgram(char *name)
 {
-    int cBuffer = 0;
-    char buffer[13312];
+  int cBuffer = 0;
+  char buffer[13312];
+  int x,segment;
 
-    readFile(name, buffer);
+  setKernelDataSegment();
+  for(x = 0;x<8;x++)
+  {
+    if(activeProcess[x] == 0)
+    {
+      activeProcess[x] = 1;
+      restoreDataSegment();
+      segment = (x+2)*0x1000;
+      break;
+    }
+  }  
     
-    for (; cBuffer < 13312; cBuffer++)
-        putInMemory(segment, cBuffer, buffer[cBuffer]);
-    
-    launchProgram(segment);
+
+
+  readFile(name, buffer);
+  
+  for (; cBuffer < 13312; cBuffer++)
+    putInMemory(segment, cBuffer, buffer[cBuffer]);
+
+  initializeProgram(segment);
 }
 
 void printString(char * mensaje)
@@ -44,7 +78,6 @@ void printString(char * mensaje)
   char *m = mensaje;
   while(*m != '\0')
     printChar(*m++);
-
 }
 
 void readString(char linea[])
@@ -136,7 +169,7 @@ void dir()
   char directory [512];
   int x,y,i;
   readSector(directory,2);
-
+  printChar('H');
   for(x=0;x<16;x++)
   {
 		for(y=0;y<6;y++)
@@ -289,8 +322,50 @@ void createTXT(char* filename)
   }
   buffer[x] = '\0';
   writeFile(filename,buffer,(x/512)+1);
-
 }
+
+void killProcess(int id)
+{
+	activeProcess[id] = 0;
+	processSP[id] = 0xFF00;
+}
+
+void handleTimerInterrupt(int segment, int sp){
+	int x;
+
+	if(firstExecution==0)
+  {
+		timeU++;
+    firstExecution = 1;
+		returnFromTimer(0x2000, processSP[0]);
+	}
+	else
+  {
+    x = currentProcess + 1;
+    if(timeU == 100)
+    {
+      timeU = 0;
+      processSP[currentProcess] = sp;
+      while(1)
+      {
+        if((x&8)==currentProcess)
+          break;
+        if(activeProcess[x]==1)
+        {
+          segment = ((x&8)+1) * 0x1000;
+          sp = processSP[x];
+          currentProcess = x;
+          break;
+        }
+        x++;
+      }
+    }
+    else
+      timeU++;
+	  returnFromTimer(segment, sp);
+  }	
+}
+
 void handleInterrupt21(int ax,int bx,int cx,int dx)
 {
   if (ax == 0)
@@ -302,7 +377,7 @@ void handleInterrupt21(int ax,int bx,int cx,int dx)
   else if(ax == 3)
     readFile(bx,cx);
   else if(ax == 4)
-    executeProgram(bx,cx);
+    executeProgram(bx);
   else if(ax == 5)
     terminateProgram();
   else if(ax == 6)
@@ -312,14 +387,15 @@ void handleInterrupt21(int ax,int bx,int cx,int dx)
   else if(ax == 8)
     writeFile(bx,cx,dx);
   else if(ax == 9)
-    dir();
+    killProcess(bx);
   else if(ax == 10)
     clear_screen();
   else if(ax == 11)
     copyFile(bx,cx);
   else if(ax == 12)
     createTXT(bx);
-
+  else if(ax == 13)
+    dir();
 }
 
 void clear_screen()
@@ -329,3 +405,4 @@ void clear_screen()
     putInMemory(0xB000,i,' ');
   interrupt(0x10,0x2,0x0,0x0,0x0);
 }
+
