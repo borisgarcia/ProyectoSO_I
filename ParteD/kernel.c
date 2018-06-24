@@ -5,12 +5,11 @@ void readFile(char *,char[]);
 void terminateProgram();
 void executeProgram(char *, int);
 void clear_screen();
-void writeSector(char*, int);
-int Op(int,int,int);
-void searchFile(char*,int);
+int searchFile(char*);
 void deleteFile(char*); 
 void writeFile(char*, char*, int);
 void copyFile(char *, char *);
+void createTXT(char*);
 void dir();
 
 int main()
@@ -55,7 +54,6 @@ void readString(char linea[])
   {
     _char = readChar();
     
-    
     if(_char == 0x8)
     {
       if(n == 0)
@@ -81,116 +79,61 @@ void readString(char linea[])
   linea[n] = '\0';
 }
 
-void writeSector(char* buffer, int sector)
+void readFile(char * name,char buffer[])
 {
-  int number,AH,AL,AX,BX,CH,CL,CX,DH,DL,DX;
-  AH = 3;
-  AL = 1;
-  BX = buffer;
-  CH = Op(sector,36,1);
-  CL = Op(sector,18,0) + 1;
-  DH = Op(Op(sector,18,1),2,0);
-  DL = 0;
-  AX = AH*256+1;
-  CX = CH*256+CL;
-  DX = DH + 256;
+	char directory[512];
+	int location;
+	int k=0;
+	int j=6;
+  readSector(directory,2);
+  location = searchFile(name);
 
-  interrupt (0x13,AX,BX,CX,DX);
-}
-
-void readFile(char *name, char buffer[])
-{
-    int next = 0,equal = 0,result = 20;
-    int x,y,i,increment,sector,first;
-    int dir[27];
-    char directory[512];
-    
-    readSector(directory, 2);
-
-    for (x = 0; x < 16; x++)
+  if(location!=-1)
+  {  
+    while(directory[(location*32)+j] != 0x0 && k<26)
     {
-        for (y = 0; y < 6; y++)
-            if (directory[y + next] != name[y])
-            {
-              equal = 1;
-              break;
-            }
-        
-        next += 32;
-
-        if (equal == 0)
-            result = x;
-
-        if (result != 20)
-            break;
+      readSector(buffer+(k*512),directory[(location*32)+j]);
+      j++;
+      k++;
     }
-
-    if (result == 20)
-      return;
-
-    else
-    {
-      first = result * 32 + 6;     
-      for (i = 0; i < 26; i++)
-        dir[i] = directory[first + i];
-        dir[26] = 0;
-        increment = 0;
-        for (sector = 0; dir[sector] != 0x0; sector++)
-        {
-          readSector(buffer + increment, dir[sector]);
-          increment += 512;
-        }
-    }
+  }
+  else
+    return;
 }
 
 void deleteFile(char* name)
 {
 	char directory [512];
 	char map [512];
-	int found = 0,x,y,i;
+	int found,i;
 
 	readSector(map,1);
 	readSector(directory,2);
 	
-  for(x=0;x<16;x++)
-  {
-		for(y=0;y<6;y++)
-    {
-			if(directory[(x*32)+y]==name[y])
-			  found = 1;
-			else
-      {
-        found = 0;
-        break;
-		  }
-		}
-		if(found == 1)
-    {
-		  directory[(x*32)] = 0x00;
-		  break;
-	  }
-	}
+  found = searchFile(name);
 
-  if(found == 1)
+  if(found != -1)
   {
+    directory[found*32] == 0x00;
     for (i=6;i<32;i++)
     {
-      directory[(x*32)+i] = 0x00;
-      map[directory[(x*32)+i]] = 0x00;
+      directory[(found*32)+i] = 0x00;
+      map[directory[(found*32)+i]] = 0x00;
     }
   }
   else
-    printString("File not Found Bitch!");
-
+  {
+    return;
+  }
   writeSector(map,1);
   writeSector(directory,2);
 }
 
 void dir()
 {
-  char fileName[6];
+  char fileName[6],subBuf[6];
   char directory [512];
-  int x,y;
+  int x,y,i;
   readSector(directory,2);
 
   for(x=0;x<16;x++)
@@ -198,17 +141,18 @@ void dir()
 		for(y=0;y<6;y++)
     {
 			if(directory[(x*32)+y]!=0x00)
-      {
-        fileName[y] = directory[(16*32)+y];
-      }
+        fileName[y] = directory[(x*32)+y];
         
       else
         break;
+      
+      if(y == 5)
+      {
+        for(i=0;i<6;i++)
+          printChar(fileName[i]);
+        printChar(' ');
+      }
 		}
-    printString(fileName);
-    printString(" - At Sector: ");
-    printString(x);
-    printString("\r\n");
 	}
 }
 
@@ -216,38 +160,30 @@ void writeFile(char* name, char* buffer, int numberOfSectors)
 {
   char directory [512];
 	char map [512];
-  int exists = 0,freeSector = -1,x,y,i,j,a=0;
+  int exists = -1,freeSector = -1,x,y,i,j,a=0;
   readSector(map,1);
-	readSector(directory,2);
+	readSector(directory,2);  
+  
+  exists = searchFile(name);
+  if(exists !=-1)
+  {
+    return;
+  }
 
-  //Busca que no existe ningun File con ese nombre
+  //Al encontrar un espacio vacio se guarda el numero en freeSector
   for(x=0;x<16;x++)
   {
-    //Al encontrar un espacio vacio se guarda el numero en freeSector
-    if (directory[32*x] == 0x00 && freeSector != -1)
+    if (directory[32*x] == 0x00 && freeSector == -1)
+    {
       freeSector = x;
-
-    //Se busca que no exista ningun File con el mismo nombre
-		for(y=0;y<6;y++)
-    {
-			if(directory[(x*32)+y]==name[y])
-			  exists = 1;
-			else
-      {
-        exists = 0;
-        break;
-		  }
-		}
-		if(exists == 1)
-    {
-      //Si se encuentra un File con ese mismo nombre la funcion termina
-		  printString("cannot create File: File exists");
-		  return;
-	  }
+      break;
+    }   
 	}
+
   //Si se encontro un espacio vacio
   if(freeSector != -1)
   {
+    
     //Escribimos el nombre del File en el Directory
     for(i = 0;i<6;i++)
     {
@@ -257,7 +193,7 @@ void writeFile(char* name, char* buffer, int numberOfSectors)
         directory[(freeSector*32)+i] = 0x00;
     }
 
-    for (j = 3; 0 != numberOfSectors && j<512; j++)
+    for (j = 3; numberOfSectors != 0 && j<512; j++)
     {
       if(map[j] == 0x00)
       {
@@ -280,16 +216,13 @@ void writeFile(char* name, char* buffer, int numberOfSectors)
 
 void copyFile(char * filename1,char * filename2)
 {
-  char buffer[512];
   int numSector,location,x;
   char directory[512];
+  char buffer[13312];
   
-  searchFile(filename1,location);
-  
-
+  location = searchFile(filename1);
   if(location == -1)
   {
-    printString("File not Found Bitch!");
     return;
   }
   
@@ -300,13 +233,12 @@ void copyFile(char * filename1,char * filename2)
     if(directory[(location*32)+x]!=0x00)
       numSector++;
   }
-
   readFile(filename1,buffer);
   writeFile(filename2,buffer,numSector);
 
 }
 
-void searchFile(char * filename,int location)
+int searchFile(char * name)
 {
   char directory[512];
   int x,y,found;
@@ -316,24 +248,48 @@ void searchFile(char * filename,int location)
   {
 		for(y=0;y<6;y++)
     {
-			if(directory[(x*32)+y]==filename[y])
+			if(directory[(x*32)+y]==name[y])
 			  found = 1;
 			else
       {
-        found = 0;
+        found = -1;
         break;
 		  }
 		}
 		if(found == 1)
-    {
-		  location = x;
-		  break;
-	  }
+      return x;
 	}
-  location = -1;
+  return -1;
 }
 
+void createTXT(char* filename)
+{
+  char buffer[13312];
+  char line[80];
+  int x,y;
+  
+  line[0]='-';
 
+  if(searchFile(filename)!=-1)
+    return;
+
+  while(line[0]!=0 && x < 13312)
+  {
+    printChar('\0');
+    readString(line);
+    for(y=0;y<80 && x<13312;y++)
+    {
+      if(line[y]==0)
+        break;
+      buffer[x++]=line[y];
+    }
+    buffer[x++]= '\r';
+    buffer[x++]= '\n';
+  }
+  buffer[x] = '\0';
+  writeFile(filename,buffer,(x/512)+1);
+
+}
 void handleInterrupt21(int ax,int bx,int cx,int dx)
 {
   if (ax == 0)
@@ -360,10 +316,9 @@ void handleInterrupt21(int ax,int bx,int cx,int dx)
     clear_screen();
   else if(ax == 11)
     copyFile(bx,cx);
-  //else if(ax == 12)
-    //createTXT();
-  else
-    printString("Error");
+  else if(ax == 12)
+    createTXT(bx);
+
 }
 
 void clear_screen()
@@ -372,25 +327,4 @@ void clear_screen()
   for(i= 0x8000; i <= 0x8fa0; i=i+2)
     putInMemory(0xB000,i,' ');
   interrupt(0x10,0x2,0x0,0x0,0x0);
-} 
-
-int Op(int x, int y,int _op)
-{
-  //Mod
-  if(_op == 0)
-  {
-    while(x >= y)
-        x = x - y;
-    return x;
-  }
-  //Div
-  else if(_op == 1)
-  {
-    int a = 0;
-    while(a*x <= y)
-        a++;
-    return a-1;
-  }
-    
-  return -1;
 }

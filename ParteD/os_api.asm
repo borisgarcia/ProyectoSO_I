@@ -11,6 +11,8 @@
 	.global _syscall_writeFile
 	.global _syscall_copyFile
 	.global _syscall_dir
+	.global _syscall_createTXT
+
 
 _syscall_printString:
 	push bp
@@ -101,7 +103,7 @@ _syscall_writeSector:
 _syscall_deleteFile:
 	push bp
 	mov bp, sp
-
+	
 	mov bx, [bp+4]
 	mov ax, #0x7
 	int #0x21
@@ -143,7 +145,19 @@ _syscall_clearScreen:
 
 	mov sp,bp
 	pop bp
-	ret	
+	ret
+
+_syscall_createTXT:
+	push bp
+	mov bp, sp
+	
+	mov bx, [bp+4]
+	mov ax, #0xC
+	int #0x21
+
+	mov sp,bp
+	pop bp
+	ret
 
 _syscall_copyFile:
 	push bp
