@@ -5,6 +5,7 @@ void readFile(char *,char[]);
 void terminateProgram();
 void executeProgram(char *, int);
 void clear_screen();
+int searchFile(char *);
 
 int main()
 {
@@ -21,50 +22,28 @@ void terminateProgram()
   while(1);
 }
 
-void readFile(char *name, char buffer[])
+void readFile(char * name,char buffer[])
 {
-    int next = 0,equal = 0,result = 20;
-    int x,y,i,increment,sector,first;
-    int dir[27];
-    char directory[512];
-    
-    readSector(directory, 2);
+	char directory[512];
+	int location;
+	int k=0;
+	int j=6;
+  readSector(directory,2);
+  location = searchFile(name);
 
-    for (x = 0; x < 16; x++)
+  if(location!=-1)
+  {  
+    while(directory[(location*32)+j] != 0x0 && k<26)
     {
-        for (y = 0; y < 6; y++)
-            if (directory[y + next] != name[y])
-            {
-              equal = 1;
-              break;
-            }
-        
-        next += 32;
-
-        if (equal == 0)
-            result = x;
-
-        if (result != 20)
-            break;
+      readSector(buffer+(k*512),directory[(location*32)+j]);
+      j++;
+      k++;
     }
-
-    if (result == 20)
-      return;
-
-    else
-    {
-      first = result * 32 + 6;     
-      for (i = 0; i < 26; i++)
-        dir[i] = directory[first + i];
-        dir[26] = 0;
-        increment = 0;
-        for (sector = 0; dir[sector] != 0x0; sector++)
-        {
-          readSector(buffer + increment, dir[sector]);
-          increment += 512;
-        }
-    }
+  }
+  else
+    return;
 }
+
 
 void executeProgram(char *name, int segment)
 {
@@ -148,3 +127,27 @@ void clear_screen()
     putInMemory(0xB000,i,' ');
   interrupt(0x10,0x2,0x0,0x0,0x0);
 } 
+
+int searchFile(char * name)
+{
+  char directory[512];
+  int x,y,found;
+  readSector(directory,2);
+
+  for(x=0;x<16;x++)
+  {
+		for(y=0;y<6;y++)
+    {
+			if(directory[(x*32)+y]==name[y])
+			  found = 1;
+			else
+      {
+        found = -1;
+        break;
+		  }
+		}
+		if(found == 1)
+      return x;
+	}
+  return -1;
+}
