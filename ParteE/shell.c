@@ -5,7 +5,8 @@ int main()
     char str[80];
     char buffer[13312];
     enableInterrupts();
-    syscall_printString("Project C: ");
+    syscall_clearScreen();
+    syscall_printString("Project Final: ");
     syscall_printString("\r\n");
     syscall_printString("\r\n");
     
@@ -14,9 +15,10 @@ int main()
         syscall_printString("SHELL> ");
         syscall_readString(str);
         cleanBuffer(buffer);
+    
         if(isEqual("execute",str))
         {
-            syscall_executeProgram(&str[8],0);
+            syscall_executeProgram(&str[8]);
             syscall_printString("\r\n");
         }
         
@@ -61,9 +63,8 @@ int main()
 
         else if(isEqual("kill",str))
         {
-            syscall_printString("Killing: ");
-            syscall_createTXT(&str[5]);
-            syscall_killProcess("\r\n");
+            //syscall_printString(str[5]);
+            syscall_killProcess(1);
         }            
 
         else
@@ -88,7 +89,7 @@ int isEqual(char buffS[], char str[])
     return 1;
 }
 
-void cleanBuffer(char buffer[])
+void cleanBuffer(char * buffer)
 {
     while(*buffer != '\0')
     {
