@@ -87,6 +87,7 @@ _syscall_executeProgram:
 	push bp
 	mov bp, sp
 
+	mov bx, [bp+8]
 	mov bx, [bp+4]
 	mov ax, #0x4
 	int #0x21

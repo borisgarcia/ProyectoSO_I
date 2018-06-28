@@ -20,6 +20,7 @@
 	.global _readChar
 	.global _readSector
 	.global _writeSector
+	.extern _handleTimerInterrupt
 
 _writeSector:
 	push bp
@@ -117,6 +118,72 @@ _initializeProgram:
 	pop	bp
 	ret
 
+;void makeTimerInterrupt()
+;sets up the timer's interrupt service routine
+_makeTimerInterrupt:
+	cli
+	mov dx,#timer_ISR ;get address of timerISR in dx
+
+	push ds
+	mov ax,#0       ;interrupts are at lowest memory
+	mov ds,ax
+	mov si,#0x20    ;timer interrupt vector (8 * 4)
+	mov ax,cs       ;have interrupt go to the current segment
+	mov [si+2],ax
+	mov [si],dx     ;address of our vector
+	pop ds
+
+	;start the timer
+	mov al,#0x36
+	out #0x43,al
+	mov ax,#0xFF
+	out #0x40,al
+	mov ax,#0xFF
+	out #0x40,al
+
+	sti
+	ret
+
+;this routine runs on timer interrupts
+timer_ISR:
+	;disable interrupts
+	cli
+
+	;save all regs for the old process on the old process's stack
+	push bx
+	push cx
+	push dx
+	push si
+	push di
+	push bp
+	push ax
+	push ds
+	push es
+
+	;reset interrupt controller so it performs more interrupts
+	mov al,#0x20
+	out #0x20,al
+
+	;get the segment (ss) and the stack pointer (sp) - we need to keep these
+	mov bx,ss
+	mov cx,sp
+
+	;set all segments to the kernel
+	mov ax,#0x1000
+	mov ds,ax
+	mov es,ax
+	mov ss,ax
+	;set the kernel's stack
+	mov ax,#0xdff0
+	mov sp,ax
+	mov bp,ax
+
+	;call handle interrupt with 2 parameters: the segment, the stack pointer.
+	mov ax,#0
+	push cx
+	push bx
+	call _handleTimerInterrupt
+
 ;void returnFromTimer(int segment, int sp)
 ;returns from a timer interrupt to a different process
 _returnFromTimer:
@@ -155,32 +222,6 @@ _returnFromTimer:
 	;enable interrupts and return
 	sti
 	iret
-
-;void makeTimerInterrupt()
-;sets up the timer's interrupt service routine
-_makeTimerInterrupt:
-	cli
-	mov dx,#timer_ISR ;get address of timerISR in dx
-
-	push ds
-	mov ax,#0       ;interrupts are at lowest memory
-	mov ds,ax
-	mov si,#0x20    ;timer interrupt vector (8 * 4)
-	mov ax,cs       ;have interrupt go to the current segment
-	mov [si+2],ax
-	mov [si],dx     ;address of our vector
-	pop ds
-
-	;start the timer
-	mov al,#0x36
-	out #0x43,al
-	mov ax,#0xFF
-	out #0x40,al
-	mov ax,#0xFF
-	out #0x40,al
-
-	sti
-	ret
 
 ;void putInMemory (int segment, int address, char character)
 _putInMemory:

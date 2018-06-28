@@ -1,5 +1,4 @@
 int isEqual(char[], char[]);
-void split(int,char[],char[]);
 void cleanBuffer(char*);
 int main()
 {
@@ -15,10 +14,9 @@ int main()
         syscall_printString("SHELL> ");
         syscall_readString(str);
         cleanBuffer(buffer);
-        //cleanBuffer(str);
         if(isEqual("execute",str))
         {
-            syscall_executeProgram(&str[8],0x4000);
+            syscall_executeProgram(&str[8],0);
             syscall_printString("\r\n");
         }
         
@@ -31,9 +29,7 @@ int main()
         }
 
         else if(isEqual("delete",str))
-        {
             syscall_deleteFile(&str[7]);
-        }
 
         else if(isEqual("copy",str))
         {
